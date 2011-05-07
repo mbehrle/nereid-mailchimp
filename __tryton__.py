@@ -13,6 +13,7 @@
         'nereid',
     ],
     'xml': [
+        'chimp.xml',
     ],
     'translation': [
     ],
