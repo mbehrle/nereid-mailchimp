@@ -159,6 +159,34 @@ class TestNereidMailChimp(unittest.TestCase):
             response = c.post('/registration', data=registration_data)
             self.assertEqual(response.status_code, 302)
 
+    def test_0040_subscription_regd(self):
+        """Subscribing a regd user."""
+        with Transaction().start(testing_proxy.db_name, testing_proxy.user, None):
+            new_user_email = self.contact_mech_obj.search([
+                ('type', '=', 'email'), 
+                ('value', '=', NEW_USER)])[0]
+            new_user_id, = self.address_obj.search(
+                [('email', '=', new_user_email)])
+            new_user = self.address_obj.browse(new_user_id)
+            
+        app = self.get_app()
+        with app.test_client() as c:
+            c.post('/login', 
+                data={'email': NEW_USER, 'password': NEW_PASS})
+            response = c.post('/subscribe-newsletter', data={
+                'email': NEW_USER,
+                'name': new_user.name})
+            self.assertEqual(response.status_code, 302)
+            
+    def test_0050_subscription_guest(self):
+        """Subscribing a guest user."""
+        app = self.get_app()
+        with app.test_client() as c:
+            response = c.post('/subscribe-newsletter', data={
+                'email': 'shalabh.aggarwal@openlabs.co.in',
+                'name': 'Shalabh Aggarwal'})
+            self.assertEqual(response.status_code, 302)
+
 def suite():
     "Nereid Mailchimp test suite"
     suite = unittest.TestSuite()

@@ -14,6 +14,7 @@
     ],
     'xml': [
         'chimp.xml',
+        'urls.xml',
     ],
     'translation': [
     ],

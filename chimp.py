@@ -50,11 +50,12 @@ def list_subscribe():
                 merge_vars['FNAME'], merge_vars['LNAME'] = request.values[
                     'name'].split(' ', 1)
             except ValueError:
-               merge_vars['FNAME'] = merge_vars['LNAME'] = request.values['name']
+                merge_vars['FNAME'] = merge_vars['LNAME'] = \
+                    request.values['name']
         else:
             return jsonify(
                 success=False, 
-                message="Name '%s' is Invalid" % request.values['name'])
+                message="Name is Invalid")
 
         chimpy_connection = Connection(
             request.nereid_website.mailchimp_api_key)

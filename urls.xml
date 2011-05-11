@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+        This file is part of Nereid. The COPYRIGHT file at the
+        top level of this repository contains the full copyright notices
+        and license terms.
+    -->
+<tryton>
+    <data noupdate="1">
+        
+        <record id="subscribe-newsletter" model="nereid.url_rule">
+            <field name="rule">/subscribe-newsletter</field>
+            <field name="endpoint">party.address.subscribe_newsletter</field>
+            <field name="sequence" eval="50" />
+            <field name="methods">("GET", "POST")</field>
+            <field name="url_map" ref="nereid.default_url_map" />
+        </record>
+
+    </data>
+</tryton>
