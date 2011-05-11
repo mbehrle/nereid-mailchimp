@@ -5,9 +5,13 @@
     :copyright: (c) 2010-2011 by Openlabs Technologies & Consulting (P) LTD
     :license: GPLv3, see LICENSE for more details
 '''
+import json
 from wtforms import Form, TextField, IntegerField, SelectField, validators, \
     PasswordField, BooleanField
-from trytond.model import ModelView, ModelSQL
+from werkzeug.wrappers import BaseResponse
+from nereid.globals import current_app
+from nereid import request
+from trytond.model import ModelView, ModelSQL, fields
 from trytond.config import CONFIG
 
 from .chimp import list_subscribe
@@ -38,7 +42,7 @@ class Address(ModelSQL, ModelView):
     """Extending address to include newsletter subscription info
     """
     _name = 'party.address'
-
+    
     registration_form = RegistrationForm
     
     def registration(self):
@@ -47,8 +51,9 @@ class Address(ModelSQL, ModelView):
         submission of registration form takes place.
         """
         response = super(Address, self).registration()
-        if response.status_code == 302:
-            list_subscribe()
+        if isinstance(response, BaseResponse) and response.status_code == 302:
+            result = list_subscribe()
+            current_app.logger.debug(json.loads(result.data))
         return response
             
 Address()            

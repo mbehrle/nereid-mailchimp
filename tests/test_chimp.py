@@ -29,6 +29,8 @@ from trytond.transaction import Transaction
 GUEST_EMAIL = 'guest@example.com'
 NEW_USER = 'new@example.com'
 NEW_PASS = 'password'
+NEW_USER2 = 'test@openlabs.co.in'
+NEW_PASS2 = 'testpassword'
 
 class TestNereidMailChimp(unittest.TestCase):
     'Test case for nereid mailchimp'
@@ -119,37 +121,25 @@ class TestNereidMailChimp(unittest.TestCase):
                 'city': 'Test City',
                 'country': country.id,
                 'subdivision': subdivision.id,
-                'email': NEW_USER,
                 'confirm': NEW_PASS,
             }
 
             response = c.post('/registration', data=registration_data)
-            result = json.loads(response.data)['message']
-            self.assertEqual(result, 'No API Configured')
             self.assertEqual(response.status_code, 302)
-            # Checking whether new has been created.
-            # An active user will have activation_code = False
-        with Transaction().start(testing_proxy.db_name, testing_proxy.user, None):
-            new_user_email = self.contact_mech_obj.search([
-                ('type', '=', 'email'), 
-                ('value', '=', NEW_USER)])[0]
-            new_user_id, = self.address_obj.search(
-                [('email', '=', new_user_email)])
-            new_user = self.address_obj.browse(new_user_id)
-            self.assertEqual(new_user.email.value, NEW_USER)
-            self.assertTrue(new_user.activation_code != False)
 
     def test_0030_registration_w_chimp_api(self):
         """API for mailchimp configured."""
-        with Transaction().start(testing_proxy.db_name, testing_proxy.user, None):
-            website_id = self.website_obj.search([])[0]
+        with Transaction().start(testing_proxy.db_name, testing_proxy.user, None) as txn:
+            website_id, = self.website_obj.search([])
             website = self.website_obj.browse(website_id)
             country = website.countries[0]
             subdivision = country.subdivisions[0]
             self.website_obj.write(website_id, {
                 'mailchimp_api_key': '4419cf2a4f09df800adf03ee9c4bd6d0-us2',
-                'mailchimp_default_list': 'openlabs',
+                'mailchimp_default_list': 'openlabs List',
                 })
+
+            txn.cursor.commit()
             
         app = self.get_app()
         with app.test_client() as c:
@@ -157,31 +147,17 @@ class TestNereidMailChimp(unittest.TestCase):
                 'name': 'New Test user',
                 'company': 'Test Company',
                 'street': 'New Street',
-                'email': NEW_USER,
-                'password': NEW_PASS,
+                'email': NEW_USER2,
+                'password': NEW_PASS2,
                 'zip': 'ABC123',
                 'city': 'Test City',
                 'country': country.id,
                 'subdivision': subdivision.id,
-                'email': NEW_USER,
-                'confirm': NEW_PASS,
+                'confirm': NEW_PASS2,
             }
 
             response = c.post('/registration', data=registration_data)
-            result = json.loads(response.data)['message']
-            self.assertEqual(result, 'No API Configured')
             self.assertEqual(response.status_code, 302)
-            # Checking whether new has been created.
-            # An active user will have activation_code = False
-        with Transaction().start(testing_proxy.db_name, testing_proxy.user, None):
-            new_user_email = self.contact_mech_obj.search([
-                ('type', '=', 'email'), 
-                ('value', '=', NEW_USER)])[0]
-            new_user_id, = self.address_obj.search(
-                [('email', '=', new_user_email)])
-            new_user = self.address_obj.browse(new_user_id)
-            self.assertEqual(new_user.email.value, NEW_USER)
-            self.assertTrue(new_user.activation_code != False)
 
 def suite():
     "Nereid Mailchimp test suite"
