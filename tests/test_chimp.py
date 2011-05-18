@@ -98,7 +98,7 @@ class TestNereidMailChimp(unittest.TestCase):
         "Successful rendering of an empty registration page"
         app = self.get_app()
         with app.test_client() as c:
-            response = c.get('/registration')
+            response = c.get('/en_US/registration')
             self.assertEqual(response.status_code, 200)
 
     def test_0020_registration_no_chimp_api(self):
@@ -124,7 +124,7 @@ class TestNereidMailChimp(unittest.TestCase):
                 'confirm': NEW_PASS,
             }
 
-            response = c.post('/registration', data=registration_data)
+            response = c.post('/en_US/registration', data=registration_data)
             self.assertEqual(response.status_code, 302)
 
     def test_0030_registration_w_chimp_api(self):
@@ -156,7 +156,7 @@ class TestNereidMailChimp(unittest.TestCase):
                 'confirm': NEW_PASS2,
             }
 
-            response = c.post('/registration', data=registration_data)
+            response = c.post('/en_US/registration', data=registration_data)
             self.assertEqual(response.status_code, 302)
 
     def test_0040_subscription_regd(self):
@@ -171,9 +171,9 @@ class TestNereidMailChimp(unittest.TestCase):
             
         app = self.get_app()
         with app.test_client() as c:
-            c.post('/login', 
+            c.post('/en_US/login', 
                 data={'email': NEW_USER, 'password': NEW_PASS})
-            response = c.post('/subscribe-newsletter', data={
+            response = c.post('/en_US/subscribe-newsletter', data={
                 'email': NEW_USER,
                 'name': new_user.name})
             self.assertEqual(response.status_code, 302)
@@ -182,7 +182,7 @@ class TestNereidMailChimp(unittest.TestCase):
         """Subscribing a guest user."""
         app = self.get_app()
         with app.test_client() as c:
-            response = c.post('/subscribe-newsletter', data={
+            response = c.post('/en_US/subscribe-newsletter', data={
                 'email': 'shalabh.aggarwal@openlabs.co.in',
                 'name': 'Shalabh Aggarwal'})
             self.assertEqual(response.status_code, 302)

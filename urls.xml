@@ -8,7 +8,7 @@
     <data noupdate="1">
         
         <record id="subscribe-newsletter" model="nereid.url_rule">
-            <field name="rule">/subscribe-newsletter</field>
+            <field name="rule">/&lt;language&gt;/subscribe-newsletter</field>
             <field name="endpoint">party.address.subscribe_newsletter</field>
             <field name="sequence" eval="50" />
             <field name="methods">("GET", "POST")</field>
