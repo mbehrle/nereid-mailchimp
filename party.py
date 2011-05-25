@@ -6,15 +6,18 @@
     :license: GPLv3, see LICENSE for more details
 '''
 import json
+
 from wtforms import Form, TextField, IntegerField, SelectField, validators, \
     PasswordField, BooleanField, HiddenField
+from wtfrecaptcha.fields import RecaptchaField
 from werkzeug.wrappers import BaseResponse
 from nereid.globals import current_app
 from nereid import request, redirect, url_for, flash
-from trytond.model import ModelView, ModelSQL, fields
+from trytond.model import ModelView, ModelSQL
 from trytond.config import CONFIG
 
 from .chimp import list_subscribe
+
 
 class RegistrationForm(Form):
     "Simple Registration form"
@@ -36,22 +39,22 @@ class RegistrationForm(Form):
         validators.EqualTo('confirm', message='Passwords must match')])
     confirm = PasswordField('Confirm Password')
     newsletter = BooleanField('Subscribe to Newsletter', default=True)
-    
-    
+
+
 class NewsletterForm(Form):
     "New Newsletter Subscription form"
     name = TextField('Name', [validators.Required(),])
     email = TextField('Email ID', [validators.Required(),])
     next = HiddenField('Next')
-    
-    
+
+
 class Address(ModelSQL, ModelView):
     """Extending address to include newsletter subscription info
     """
     _name = 'party.address'
-    
+
     registration_form = RegistrationForm
-    
+
     def registration(self):
         """This method will super the registration method in nereid
         and will call list_subscribe methom from chimp.py if successful 
@@ -62,7 +65,7 @@ class Address(ModelSQL, ModelView):
             result = list_subscribe()
             current_app.logger.debug(json.loads(result.data))
         return response
-        
+
     def subscribe_newsletter(self):
         """This method will allow the user to subscribe to a newsletter 
         just by filling up email and name(mandatory for guest user)
@@ -74,5 +77,5 @@ class Address(ModelSQL, ModelView):
             flash('You have been successfully subscribed to newsletters.')
         return redirect(request.values.get('next', 
             url_for('nereid.website.home')))
-            
-Address()            
+
+Address()
