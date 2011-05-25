@@ -72,9 +72,13 @@ class Address(ModelSQL, ModelView):
         """
         form = NewsletterForm(request.form)
         if form.validate():
-            result = list_subscribe()
-            current_app.logger.debug(json.loads(result.data))
-            flash('You have been successfully subscribed to newsletters.')
+            result = json.loads(list_subscribe().data)
+            if not result['success']:
+                current_app.logger.error(result)
+                flash('We could not subscribe you into the newsletter.'
+                    ' Try again later')
+            else:
+                flash('You have been successfully subscribed to newsletters.')
         return redirect(request.values.get('next', 
             url_for('nereid.website.home')))
 
