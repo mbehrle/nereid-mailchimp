@@ -38,7 +38,7 @@ class RegistrationForm(Form):
         validators.Required(),
         validators.EqualTo('confirm', message='Passwords must match')])
     confirm = PasswordField('Confirm Password')
-    newsletter = BooleanField('Subscribe to Newsletter', default=True)
+    newsletter = BooleanField('Subscribe to Newsletter', default=False)
 
 
 class NewsletterForm(Form):
@@ -61,9 +61,12 @@ class Address(ModelSQL, ModelView):
         submission of registration form takes place.
         """
         response = super(Address, self).registration()
-        if isinstance(response, BaseResponse) and response.status_code == 302:
-            result = list_subscribe()
-            current_app.logger.debug(json.loads(result.data))
+        current_app.logger.debug(request.values)
+        if request.values.get('newsletter', False) == 'True':
+            if isinstance(response, BaseResponse) and response.status_code == 302:
+                result = list_subscribe()
+                if result:
+                    current_app.logger.debug(json.loads(result.data))
         return response
 
     def subscribe_newsletter(self):
