@@ -62,8 +62,10 @@ class Address(ModelSQL, ModelView):
         """
         response = super(Address, self).registration()
         current_app.logger.debug(request.values)
-        if request.values.get('newsletter', False) == 'True':
-            if isinstance(response, BaseResponse) and response.status_code == 302:
+        if request.method == 'POST' and \
+            request.values.get('newsletter', False) == 'True':
+            if isinstance(response, BaseResponse) and \
+                response.status_code == 302:
                 result = list_subscribe()
                 if result:
                     current_app.logger.debug(json.loads(result.data))
