@@ -71,6 +71,12 @@ class Address(ModelSQL, ModelView):
                     current_app.logger.debug(json.loads(result.data))
         return response
 
+    def list_subscribe(self):
+        """A helper method which just proxies list_subscribe so that
+        this could be accessed by a pool lookup.
+        """
+        return list_subscribe()
+        
     def subscribe_newsletter(self):
         """This method will allow the user to subscribe to a newsletter 
         just by filling up email and name(mandatory for guest user)
