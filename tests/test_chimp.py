@@ -4,17 +4,19 @@
 
     Test the mailchimp plugin for nereid
 
-    :copyright: (c) 2010-2011 by Openlabs Technologies & Consulting (P) Ltd.
+    :copyright: (c) 2010-2012 by Openlabs Technologies & Consulting (P) LTD.
     :license: GPLv3, see LICENSE for more details.
 """
-import json
-from ast import literal_eval
-from decimal import Decimal
 import unittest2 as unittest
+
+from minimock import Mock
+import smtplib
+smtplib.SMTP = Mock('smtplib.SMTP')
+smtplib.SMTP.mock_returns = Mock('smtp_connection')
 
 from trytond.config import CONFIG
 CONFIG.options['db_type'] = 'sqlite'
-CONFIG.options['data_path'] = '/home/shalabh'
+CONFIG.options['data_path'] = '/tmp/temp_tryton_data/'
 CONFIG['smtp_server'] = 'smtp.gmail.com'
 CONFIG['smtp_user'] = 'test@xyz.com'
 CONFIG['smtp_password'] = 'testpassword'
@@ -23,7 +25,7 @@ CONFIG['smtp_tls'] = True
 from trytond.modules import register_classes
 register_classes()
 
-from nereid.testing import testing_proxy
+from nereid.testing import testing_proxy, TestCase
 from trytond.transaction import Transaction
 
 GUEST_EMAIL = 'guest@example.com'
@@ -32,39 +34,44 @@ NEW_PASS = 'password'
 NEW_USER2 = 'test@openlabs.co.in'
 NEW_PASS2 = 'testpassword'
 
-class TestNereidMailChimp(unittest.TestCase):
+
+class TestNereidMailChimp(TestCase):
     'Test case for nereid mailchimp'
 
     @classmethod
     def setUpClass(cls):
-        # Install module
+        super(TestNereidMailChimp, cls).setUpClass()
+
         testing_proxy.install_module('nereid_chimp')
 
         country_obj = testing_proxy.pool.get('country.country')
-        address_obj = testing_proxy.pool.get('party.address')
 
         with Transaction().start(testing_proxy.db_name, 1, None) as txn:
             # Create company
             company = testing_proxy.create_company('Test Company')
             testing_proxy.set_company_for_user(1, company)
 
-            cls.guest_user = testing_proxy.create_guest_user(email=GUEST_EMAIL)
-            
-            cls.regd_user_id = testing_proxy.create_user_party('Registered User', 
-                'email@example.com', 'password')
+            cls.guest_user = testing_proxy.create_guest_user(
+                email=GUEST_EMAIL, company=company
+            )
+
+            cls.regd_user_id = testing_proxy.create_user_party(
+                'Registered User',
+                'email@example.com', 'password', company
+            )
 
             cls.available_countries = country_obj.search([], limit=5)
-            cls.site = testing_proxy.create_site('testsite.com', 
+            cls.site = testing_proxy.create_site('testsite.com',
                 countries = [('set', cls.available_countries)])
 
             testing_proxy.create_template('home.jinja', ' Home ', cls.site)
             testing_proxy.create_template(
-                'login.jinja', 
+                'login.jinja',
                 '{{ login_form.errors }} {{get_flashed_messages()}}', cls.site)
             testing_proxy.create_template(
-                'registration.jinja', 
+                'registration.jinja',
                 '{{ form.errors }} {{get_flashed_messages()}}', cls.site)
-            
+
             testing_proxy.create_template(
                 'reset-password.jinja', '', cls.site)
             testing_proxy.create_template(
@@ -86,14 +93,10 @@ class TestNereidMailChimp(unittest.TestCase):
             'GUEST_USER': self.guest_user,
             })
         return testing_proxy.make_app(**options)
-        
+
     def setUp(self):
-        self.address_obj = testing_proxy.pool.get('party.address')
-        self.country_obj = testing_proxy.pool.get('country.country')
-        self.subdivision_obj = testing_proxy.pool.get('country.subdivision')
         self.website_obj = testing_proxy.pool.get('nereid.website')
-        self.contact_mech_obj = testing_proxy.pool.get('party.contact_mechanism')
-        
+
     def test_0010_registration_form(self):
         "Successful rendering of an empty registration page"
         app = self.get_app()
@@ -103,33 +106,28 @@ class TestNereidMailChimp(unittest.TestCase):
 
     def test_0020_registration_no_chimp_api(self):
         """No API for mailchimp configured. Should throw an error."""
-        with Transaction().start(testing_proxy.db_name, testing_proxy.user, None):
+        with Transaction().start(
+                    testing_proxy.db_name, testing_proxy.user, None):
             website_id = self.website_obj.search([])[0]
             website = self.website_obj.browse(website_id)
             country = website.countries[0]
             subdivision = country.subdivisions[0]
-            
+
         app = self.get_app()
         with app.test_client() as c:
             registration_data = {
                 'name': 'New Test user',
-                'company': 'Test Company',
-                'street': 'New Street',
                 'email': NEW_USER,
                 'password': NEW_PASS,
-                'zip': 'ABC123',
-                'city': 'Test City',
-                'country': country.id,
-                'subdivision': subdivision.id,
                 'confirm': NEW_PASS,
             }
-
             response = c.post('/en_US/registration', data=registration_data)
             self.assertEqual(response.status_code, 302)
 
     def test_0030_registration_w_chimp_api(self):
         """API for mailchimp configured."""
-        with Transaction().start(testing_proxy.db_name, testing_proxy.user, None) as txn:
+        with Transaction().start(
+                testing_proxy.db_name, testing_proxy.user, None) as txn:
             website_id, = self.website_obj.search([])
             website = self.website_obj.browse(website_id)
             country = website.countries[0]
@@ -140,44 +138,29 @@ class TestNereidMailChimp(unittest.TestCase):
                 })
 
             txn.cursor.commit()
-            
+
         app = self.get_app()
         with app.test_client() as c:
             registration_data = {
                 'name': 'New Test user',
-                'company': 'Test Company',
-                'street': 'New Street',
                 'email': NEW_USER2,
                 'password': NEW_PASS2,
-                'zip': 'ABC123',
-                'city': 'Test City',
-                'country': country.id,
-                'subdivision': subdivision.id,
                 'confirm': NEW_PASS2,
             }
-
             response = c.post('/en_US/registration', data=registration_data)
             self.assertEqual(response.status_code, 302)
 
     def test_0040_subscription_regd(self):
         """Subscribing a regd user."""
-        with Transaction().start(testing_proxy.db_name, testing_proxy.user, None):
-            new_user_email = self.contact_mech_obj.search([
-                ('type', '=', 'email'), 
-                ('value', '=', NEW_USER)])[0]
-            new_user_id, = self.address_obj.search(
-                [('email', '=', new_user_email)])
-            new_user = self.address_obj.browse(new_user_id)
-            
         app = self.get_app()
         with app.test_client() as c:
-            c.post('/en_US/login', 
+            c.post('/en_US/login',
                 data={'email': NEW_USER, 'password': NEW_PASS})
             response = c.post('/en_US/subscribe-newsletter', data={
                 'email': NEW_USER,
-                'name': new_user.name})
+                'name': "Some Name"})
             self.assertEqual(response.status_code, 302)
-            
+
     def test_0050_subscription_guest(self):
         """Subscribing a guest user."""
         app = self.get_app()
@@ -186,6 +169,7 @@ class TestNereidMailChimp(unittest.TestCase):
                 'email': 'shalabh.aggarwal@openlabs.co.in',
                 'name': 'Shalabh Aggarwal'})
             self.assertEqual(response.status_code, 302)
+
 
 def suite():
     "Nereid Mailchimp test suite"

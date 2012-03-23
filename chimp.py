@@ -4,10 +4,10 @@
 
     Implements the view function for subscription
 
-    :copyright: © 2011 by Openlabs Technologies & Consulting (P) Limited
+    :copyright: © 2011-2012 by Openlabs Technologies & Consulting (P) Limited
     :license: BSD, see LICENSE for more details.
 """
-from nereid import request, jsonify
+from nereid import request, jsonify, current_app
 
 from chimpy import Connection
 from chimpy.chimpy import ChimpyException
@@ -29,10 +29,14 @@ def list_subscribe():
     {
         'success': True or False,
         'message': A message (Not recommended to be displayed to user)
-        }
+    }
     """
     if not request.nereid_website.mailchimp_api_key:
-        return jsonify(success=False, message="No API Configured")
+        current_app.logger.error("nereid-mailchimp No API key")
+        return jsonify(
+            success=False,
+            message="No API Configured"
+        )
 
     if request.method == 'POST':
         # Mailchimp requires first name and last name, but nereid probably
@@ -54,11 +58,13 @@ def list_subscribe():
                     request.values['name']
         else:
             return jsonify(
-                success=False, 
-                message="Name is Invalid")
+                success=False,
+                message="Name is Invalid"
+            )
 
         chimpy_connection = Connection(
-            request.nereid_website.mailchimp_api_key)
+            request.nereid_website.mailchimp_api_key
+        )
 
         mailing_list = request.values['mailing_list'] \
             if 'mailing_list' in keys else None
@@ -71,8 +77,9 @@ def list_subscribe():
                     mailing_list = each_list['id']
                     break
             else:
-                return jsonify(success=False, 
-                    message="No mailing list specified, default one not found")
+                return jsonify(success=False,
+                    message="No mailing list specified, default one not found"
+                )
         #  Call Subscribe
         merge_vars['OPTIN_IP'] = request.remote_addr
         try:
