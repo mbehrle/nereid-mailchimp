@@ -5,7 +5,7 @@
         and license terms.
     -->
 <tryton>
-    <data noupdate="1">
+    <data>
         
         <record id="subscribe-newsletter" model="nereid.url_rule">
             <field name="rule">/&lt;language&gt;/subscribe-newsletter</field>
