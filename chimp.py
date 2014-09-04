@@ -4,7 +4,7 @@
 
     Implements the view function for subscription
 
-    :copyright: (c) 2011-2012 by Openlabs Technologies & Consulting (P) Limited
+    :copyright: (c) 2011-2014 by Openlabs Technologies & Consulting (P) Limited
     :license: GPLv3, see LICENSE for more details.
 """
 from nereid import request, jsonify, current_app
@@ -40,7 +40,7 @@ def list_subscribe():
 
     if request.method == 'POST':
         # Mailchimp requires first name and last name, but nereid probably
-        # took only the name field. Check for the keys to decide what to pick 
+        # took only the name field. Check for the keys to decide what to pick
         email = request.values['email']
 
         merge_vars = {}
@@ -57,10 +57,7 @@ def list_subscribe():
                 merge_vars['FNAME'] = merge_vars['LNAME'] = \
                     request.values['name']
         else:
-            return jsonify(
-                success=False,
-                message="Name is Invalid"
-            )
+            merge_vars.update({'FIRST': '', 'LAST': ''})
 
         chimpy_connection = Connection(
             request.nereid_website.mailchimp_api_key
@@ -77,7 +74,8 @@ def list_subscribe():
                     mailing_list = each_list['id']
                     break
             else:
-                return jsonify(success=False,
+                return jsonify(
+                    success=False,
                     message="No mailing list specified, default one not found"
                 )
         #  Call Subscribe

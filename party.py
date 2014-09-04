@@ -2,77 +2,38 @@
 '''
     nereid_mailchimp.party
 
-    :copyright: (c) 2010-2012 by Openlabs Technologies & Consulting (P) LTD
+    :copyright: (c) 2010-2014 by Openlabs Technologies & Consulting (P) LTD
     :license: GPLv3, see LICENSE for more details
 '''
 import json
 
-from wtforms import Form, TextField, validators, PasswordField, BooleanField,\
-    HiddenField
-from wtfrecaptcha.fields import RecaptchaField
-from werkzeug.wrappers import BaseResponse
+from wtforms import (
+    TextField, validators, HiddenField
+)
+from flask_wtf import Form
 from nereid.globals import current_app
-from nereid import request, redirect, url_for, flash
-from trytond.model import ModelView, ModelSQL
-from trytond.config import CONFIG
+from nereid import request, redirect, url_for, flash, route, jsonify
+
+from trytond.pool import PoolMeta
 
 from .chimp import list_subscribe
-from .i18n import _, get_translations
+from .i18n import _
 
-
-class RegistrationForm(Form):
-    "Simple Registration form"
-
-    def _get_translations(self):
-        """
-        Provide alternate translations factory.
-        """
-        return get_translations()
-
-    name = TextField(_('Name'), [validators.Required(),])
-    email = TextField(_('e-mail'), [validators.Required(), validators.Email()])
-    password = PasswordField(_('New Password'), [
-        validators.Required(),
-        validators.EqualTo('confirm', message=_('Passwords must match'))])
-    confirm = PasswordField(_('Confirm Password'))
-
-    if 're_captcha_public' in CONFIG.options:
-        captcha = RecaptchaField(
-            public_key=CONFIG.options['re_captcha_public'],
-            private_key=CONFIG.options['re_captcha_private'],
-            secure=True
-        )
-    newsletter = BooleanField(_('Subscribe to Newsletter'), default=False)
+__all__ = ['NereidUser']
+__metaclass__ = PoolMeta
 
 
 class NewsletterForm(Form):
     "New Newsletter Subscription form"
-    name = TextField(_('Name'), [validators.Required(),])
-    email = TextField(_('Email ID'), [validators.Required(),])
+    name = TextField(_('Name'))
+    email = TextField(_('Email ID'), [validators.DataRequired()])
     next = HiddenField('Next')
 
 
-class NereidUser(ModelSQL, ModelView):
+class NereidUser:
     """Extending user to include newsletter subscription info
     """
-    _name = 'nereid.user'
-
-    registration_form = RegistrationForm
-
-    def registration(self):
-        """This method will super the registration method in nereid
-        and will call list_subscribe methom from chimp.py if successful 
-        submission of registration form takes place.
-        """
-        response = super(NereidUser, self).registration()
-        if request.method == 'POST' and \
-            request.values.get('newsletter', False) == 'True':
-            if isinstance(response, BaseResponse) and \
-                    response.status_code == 302:
-                result = list_subscribe()
-                if result:
-                    current_app.logger.debug(json.loads(result.data))
-        return response
+    __name__ = 'nereid.user'
 
     def list_subscribe(self):
         """A helper method which just proxies list_subscribe so that
@@ -80,23 +41,41 @@ class NereidUser(ModelSQL, ModelView):
         """
         return list_subscribe()
 
-    def subscribe_newsletter(self):
+    @classmethod
+    @route('/mailing-list/subscribe', methods=['POST'])
+    def subscribe_newsletter(cls):
         """This method will allow the user to subscribe to a newsletter
         just by filling up email and name(mandatory for guest user)
         """
         form = NewsletterForm(request.form)
-        if form.validate():
-            result = json.loads(list_subscribe().data)
-            if not result['success']:
-                current_app.logger.error(result)
-                flash(_('We could not subscribe you into the newsletter.'
-                    ' Try again later'))
+        message = None
+
+        if not form.validate() and request.is_xhr:
+            return jsonify(errors=form.errors), 400
+
+        result = json.loads(list_subscribe().data)
+        if not result['success']:
+            current_app.logger.error(result)
+            if "already subscribed" in result['message']:
+                message = _(result['message'])
+                if request.is_xhr:
+                    return jsonify(message=unicode(message)), 409
             else:
-                flash(
-                    _('You have been successfully subscribed to newsletters.')
+                message = _(
+                    'We could not subscribe you into the newsletter.'
+                    ' Try again later'
                 )
+            if request.is_xhr:
+                return jsonify(message=unicode(message)), 501
+        else:
+            message = _(
+                'You have been successfully subscribed to newsletters.'
+            )
+
+        if request.is_xhr:
+            return jsonify(message=message and unicode(message))
+
+        flash(message or "Please fill form properly")
         return redirect(
             request.values.get('next', url_for('nereid.website.home'))
         )
-
-NereidUser()

@@ -7,178 +7,154 @@
     :copyright: (c) 2010-2012 by Openlabs Technologies & Consulting (P) LTD.
     :license: GPLv3, see LICENSE for more details.
 """
-import unittest2 as unittest
+import os
+import sys
+import json
+DIR = os.path.abspath(os.path.normpath(os.path.join(
+    __file__, '..', '..', '..', '..', '..', 'trytond'
+)))
+if os.path.isdir(DIR):
+    sys.path.insert(0, os.path.dirname(DIR))
+import unittest
 
-from minimock import Mock
-import smtplib
-smtplib.SMTP = Mock('smtplib.SMTP')
-smtplib.SMTP.mock_returns = Mock('smtp_connection')
-
-from trytond.config import CONFIG
-CONFIG.options['db_type'] = 'sqlite'
-CONFIG.options['data_path'] = '/tmp/temp_tryton_data/'
-CONFIG['smtp_server'] = 'smtp.gmail.com'
-CONFIG['smtp_user'] = 'test@xyz.com'
-CONFIG['smtp_password'] = 'testpassword'
-CONFIG['smtp_port'] = 587
-CONFIG['smtp_tls'] = True
-from trytond.modules import register_classes
-register_classes()
-
-from nereid.testing import testing_proxy, TestCase
+import trytond.tests.test_tryton
+from trytond.tests.test_tryton import (
+    POOL, USER, DB_NAME, CONTEXT, test_view, test_depends
+)
+from nereid.testing import NereidTestCase
 from trytond.transaction import Transaction
 
-GUEST_EMAIL = 'guest@example.com'
-NEW_USER = 'new@example.com'
-NEW_PASS = 'password'
-NEW_USER2 = 'test@openlabs.co.in'
-NEW_PASS2 = 'testpassword'
 
-
-class TestNereidMailChimp(TestCase):
-    'Test case for nereid mailchimp'
-
-    @classmethod
-    def setUpClass(cls):
-        super(TestNereidMailChimp, cls).setUpClass()
-
-        testing_proxy.install_module('nereid_chimp')
-
-        country_obj = testing_proxy.pool.get('country.country')
-
-        with Transaction().start(testing_proxy.db_name, 1, None) as txn:
-            # Create company
-            company = testing_proxy.create_company('Test Company')
-            testing_proxy.set_company_for_user(1, company)
-
-            cls.guest_user = testing_proxy.create_guest_user(
-                email=GUEST_EMAIL, company=company
-            )
-
-            cls.regd_user_id = testing_proxy.create_user_party(
-                'Registered User',
-                'email@example.com', 'password', company
-            )
-
-            cls.available_countries = country_obj.search([], limit=5)
-            cls.site = testing_proxy.create_site('testsite.com',
-                countries = [('set', cls.available_countries)])
-
-            testing_proxy.create_template('home.jinja', ' Home ', cls.site)
-            testing_proxy.create_template(
-                'login.jinja',
-                '{{ login_form.errors }} {{get_flashed_messages()}}', cls.site)
-            testing_proxy.create_template(
-                'registration.jinja',
-                '{{ form.errors }} {{get_flashed_messages()}}', cls.site)
-
-            testing_proxy.create_template(
-                'reset-password.jinja', '', cls.site)
-            testing_proxy.create_template(
-                'change-password.jinja',
-                '{{ change_password_form.errors }}', cls.site)
-            testing_proxy.create_template(
-                'address-edit.jinja',
-                '{{ form.errors }}', cls.site)
-            testing_proxy.create_template(
-                'address.jinja', '', cls.site)
-            testing_proxy.create_template(
-                'account.jinja', '', cls.site)
-
-            txn.cursor.commit()
-
-    def get_app(self, **options):
-        options.update({
-            'SITE': 'testsite.com',
-            'GUEST_USER': self.guest_user,
-            })
-        return testing_proxy.make_app(**options)
+class TestChimp(NereidTestCase):
+    "Chimp Test Case"
 
     def setUp(self):
-        self.website_obj = testing_proxy.pool.get('nereid.website')
+        """
+        Set up data used in the tests.
+        this method is called before each test execution.
+        """
+        trytond.tests.test_tryton.install_module('nereid_chimp')
 
-    def test_0010_registration_form(self):
-        "Successful rendering of an empty registration page"
-        app = self.get_app()
-        with app.test_client() as c:
-            response = c.get('/en_US/registration')
-            self.assertEqual(response.status_code, 200)
+        self.Currency = POOL.get('currency.currency')
+        self.Site = POOL.get('nereid.website')
+        self.Company = POOL.get('company.company')
+        self.NereidUser = POOL.get('nereid.user')
+        self.UrlMap = POOL.get('nereid.url_map')
+        self.Language = POOL.get('ir.lang')
+        self.NereidWebsite = POOL.get('nereid.website')
+        self.Party = POOL.get('party.party')
+        self.Locale = POOL.get('nereid.website.locale')
+        self.xhr_header = [
+            ('X-Requested-With', 'XMLHttpRequest'),
+        ]
 
-    def test_0020_registration_no_chimp_api(self):
-        """No API for mailchimp configured. Should throw an error."""
-        with Transaction().start(
-                    testing_proxy.db_name, testing_proxy.user, None):
-            website_id = self.website_obj.search([])[0]
-            website = self.website_obj.browse(website_id)
-            country = website.countries[0]
-            subdivision = country.subdivisions[0]
+    def setup_defaults(self):
+        """
+        Setup the defaults
+        """
+        usd, = self.Currency.create([{
+            'name': 'US Dollar',
+            'code': 'USD',
+            'symbol': '$',
+        }])
+        party1, = self.Party.create([{
+            'name': 'Openlabs',
+        }])
+        company, = self.Company.create([{
+            'party': party1.id,
+            'currency': usd.id
+        }])
+        party2, = self.Party.create([{
+            'name': 'Guest User',
+        }])
+        guest_user, = self.NereidUser.create([{
+            'party': party2.id,
+            'display_name': 'Guest User',
+            'email': 'guest@example.com',
+            'password': 'password',
+            'company': company.id,
+        }])
+        party3, = self.Party.create([{
+            'name': 'Registered User',
+        }])
+        self.registered_user, = self.NereidUser.create([{
+            'party': party3.id,
+            'display_name': 'Registered User',
+            'email': 'email@example.com',
+            'password': 'password',
+            'company': company.id,
+        }])
 
-        app = self.get_app()
-        with app.test_client() as c:
-            registration_data = {
-                'name': 'New Test user',
-                'email': NEW_USER,
-                'password': NEW_PASS,
-                'confirm': NEW_PASS,
-            }
-            response = c.post('/en_US/registration', data=registration_data)
-            self.assertEqual(response.status_code, 302)
+        # Create website
+        url_map, = self.UrlMap.search([], limit=1)
+        en_us, = self.Language.search([('code', '=', 'en_US')])
 
-    def test_0030_registration_w_chimp_api(self):
-        """API for mailchimp configured."""
-        with Transaction().start(
-                testing_proxy.db_name, testing_proxy.user, None) as txn:
-            website_id, = self.website_obj.search([])
-            website = self.website_obj.browse(website_id)
-            country = website.countries[0]
-            subdivision = country.subdivisions[0]
-            self.website_obj.write(website_id, {
-                'mailchimp_api_key': '4419cf2a4f09df800adf03ee9c4bd6d0-us2',
-                'mailchimp_default_list': 'openlabs List',
-                })
+        self.locale_en_us, = self.Locale.create([{
+            'code': 'en_US',
+            'language': en_us.id,
+            'currency': usd.id,
+        }])
+        self.NereidWebsite.create([{
+            'name': 'localhost',
+            'url_map': url_map.id,
+            'guest_user': guest_user,
+            'company': company.id,
+            'application_user': USER,
+            'default_locale': self.locale_en_us.id,
+            'currencies': [('add', [usd.id])],
+            'mailchimp_api_key': '075986b700e22d414a34c34243d54658-us9',
+            'mailchimp_default_list': 'LN TEST',
+        }])
 
-            txn.cursor.commit()
+    def test0005views(self):
+        '''
+        Test views.
+        '''
+        test_view('nereid_chimp')
 
-        app = self.get_app()
-        with app.test_client() as c:
-            registration_data = {
-                'name': 'New Test user',
-                'email': NEW_USER2,
-                'password': NEW_PASS2,
-                'confirm': NEW_PASS2,
-            }
-            response = c.post('/en_US/registration', data=registration_data)
-            self.assertEqual(response.status_code, 302)
+    def test0006depends(self):
+        '''
+        Test depends.
+        '''
+        test_depends()
 
-    def test_0040_subscription_regd(self):
-        """Subscribing a regd user."""
-        app = self.get_app()
-        with app.test_client() as c:
-            c.post('/en_US/login',
-                data={'email': NEW_USER, 'password': NEW_PASS})
-            response = c.post('/en_US/subscribe-newsletter', data={
-                'email': NEW_USER,
-                'name': "Some Name"})
-            self.assertEqual(response.status_code, 302)
+    def test0010_list_subscription(self):
+        '''
+        Test if product has all the attributes of variation_attributes.
+        '''
+        with Transaction().start(DB_NAME, USER, context=CONTEXT):
+            self.setup_defaults()
 
-    def test_0050_subscription_guest(self):
-        """Subscribing a guest user."""
-        app = self.get_app()
-        with app.test_client() as c:
-            response = c.post('/en_US/subscribe-newsletter', data={
-                'email': 'shalabh.aggarwal@openlabs.co.in',
-                'name': 'Shalabh Aggarwal'})
-            self.assertEqual(response.status_code, 302)
+            app = self.get_app()
+
+            with app.test_client() as c:
+                response = c.get('/mailing-list/subscribe')
+                self.assertEqual(response.status_code, 405)
+
+                response = c.post('/mailing-list/subscribe', data={
+                    'email': 'tb@openlabs.co.in'
+                }, headers=self.xhr_header)
+                self.assertEqual(response.status_code, 409)
+                rv_json = json.loads(response.data)
+                self.assertTrue('already subscribed' in rv_json['message'])
+
+                response = c.post('/mailing-list/subscribe', data={
+                    'email': 'tb_do_not_exist@openlabs.co.in'
+                }, headers=self.xhr_header)
+                self.assertEqual(response.status_code, 200)
+                rv_json = json.loads(response.data)
+                self.assertTrue('successfully subscribed' in rv_json['message'])
 
 
 def suite():
-    "Nereid Mailchimp test suite"
-    suite = unittest.TestSuite()
-    suite.addTests(
-        unittest.TestLoader().loadTestsFromTestCase(TestNereidMailChimp)
-        )
-    return suite
-
+    """
+    Define suite
+    """
+    test_suite = trytond.tests.test_tryton.suite()
+    test_suite.addTests(
+        unittest.TestLoader().loadTestsFromTestCase(TestChimp)
+    )
+    return test_suite
 
 if __name__ == '__main__':
     unittest.TextTestRunner(verbosity=2).run(suite())
