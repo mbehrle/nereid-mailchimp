@@ -78,7 +78,7 @@ minor_version = int(minor_version)
 MODULE2PREFIX = {}
 
 requires = [
-    'chimpy',
+    'chimpy==0.2b2',
 ]
 for dep in info.get('depends', []):
     if not re.match(r'(ir|res|webdav)(\W|$)', dep):
