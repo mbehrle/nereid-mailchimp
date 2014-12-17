@@ -1,0 +1,35 @@
+# 
+msgid ""
+msgstr "Content-Type: text/plain; charset=utf-8\n"
+
+msgctxt "field:nereid.website,mailchimp_api_key:"
+msgid "MailChimp API Key"
+msgstr "MailChimp API Key"
+
+msgctxt "field:nereid.website,mailchimp_default_list:"
+msgid "Default List Name"
+msgstr "Standardliste"
+
+msgctxt "nereid:party.py:"
+msgid "Email ID"
+msgstr "E-Mail ID"
+
+msgctxt "nereid:party.py:"
+msgid "Name"
+msgstr "Name"
+
+msgctxt "nereid:party.py:"
+msgid "We could not subscribe you into the newsletter. Try again later"
+msgstr "Wir konnten Sie leider nicht für den Newsletter anmelden"
+
+msgctxt "nereid:party.py:"
+msgid "You have been successfully subscribed to newsletters."
+msgstr "Sie wurden erfolgreich für den Newsletter angemeldet"
+
+msgctxt "nereid:party.py:"
+msgid "message"
+msgstr "Nachricht"
+
+msgctxt "view:nereid.website:"
+msgid "MailChimp Config."
+msgstr "MailChimp Einst."
