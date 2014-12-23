@@ -24,7 +24,7 @@ msgstr "Wir konnten Sie leider nicht für den Newsletter anmelden"
 
 msgctxt "nereid:party.py:"
 msgid "You have been successfully subscribed to newsletters."
-msgstr "Sie wurden erfolgreich für den Newsletter angemeldet"
+msgstr "Sie haben sich erfolgreich für den Newsletter angemeldet"
 
 msgctxt "nereid:party.py:"
 msgid "message"
